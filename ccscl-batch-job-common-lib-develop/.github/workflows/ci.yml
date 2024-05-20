@@ -1,0 +1,14 @@
+name: ci-npm-lib
+on:
+  push:
+    branches:
+    - '**'
+    paths-ignore:
+    - .github/workflows/**
+    - '**.md'
+  workflow_dispatch:
+  create:
+jobs:
+  ci:
+    uses: Toyota-Motor-North-America/chofer-actions/.github/workflows/ci-npm-lib.yml@v1
+    secrets: inherit

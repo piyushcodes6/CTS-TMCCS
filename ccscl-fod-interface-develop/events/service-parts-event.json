@@ -1,0 +1,14 @@
+{
+    "Records":[
+        {
+            "s3": {
+                "object": {
+                    "key": "inbound/fod/service-parts/DAILY_NON_VEHCILE_REQ_TMMK.txt"
+                },
+                "bucket": {
+                    "name": "ccs-dev-data-files"
+                }
+            }
+        }
+    ]
+}

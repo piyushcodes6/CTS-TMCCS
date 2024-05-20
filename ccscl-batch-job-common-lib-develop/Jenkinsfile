@@ -1,0 +1,3 @@
+@Library('tmna-job-library@release/2.0') _
+ciNpmLib {
+}

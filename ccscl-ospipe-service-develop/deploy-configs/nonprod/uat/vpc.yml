@@ -1,0 +1,9 @@
+###### Define your VPC Variables,if needed.
+
+##Example:-
+#(Format)
+securityGroupIds: 
+  - sg-022bbe89a150cfa15
+subnetIds: 
+  - subnet-0473da4a9e574982a
+  - subnet-04f8ec698b4e11495

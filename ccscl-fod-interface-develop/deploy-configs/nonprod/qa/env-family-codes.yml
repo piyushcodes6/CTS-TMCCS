@@ -1,0 +1,3 @@
+FOD_CONNECTION_PARAMS: ccs-${self:custom.config.environment}-fod-details
+HOSTNAME: a30wqc4831.execute-api.us-west-2.amazonaws.com
+moduleId: ${self:custom.familyCodesConfig.moduleId}

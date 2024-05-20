@@ -1,0 +1,37 @@
+{
+  "name": "fod-interface",
+  "version": "1.0.0",
+  "description": "NodeJs Application to process data from FOD via files/API",
+  "requiredNodeVersion": "16.20.0",
+  "scripts": {
+    "serverless": "serverless",
+    "clean": "",
+    "package": "rimraf *.zip && zip -rq temp-app.zip src node_modules package*.json serverless.yml deploy-configs webpack.config.js source-map-install.js && mv temp-app.zip",
+    "build": "npm install",
+    "test": "",
+    "deploy": "npm run build && serverless deploy",
+    "lint": "tslint \"src/**/*.ts\" --force",
+    "local": "serverless invoke local -f hello",
+    "local-summ-nqc": "serverless invoke local -s dev -p events/summary-nqc-event.json -f summary-nqc-file-processor",
+    "local-service-parts": "serverless invoke local -s dev -p events/service-parts-event.json -f service-parts-file-processor",
+    "local-pass-vehicle": "serverless invoke local -s dev -p events/pass-vehicle-event.json -f pass-vehicle-file-processor",
+    "local-family-codes": "serverless invoke local -s dev -p events/family-codes-event.json -f family-codes-data-loader",
+    "local-detailed-nqc": "serverless invoke local -s dev -p events/detailed-nqc-event.json -f detailed-nqc-file-processor"
+  },
+  "devDependencies": {
+    "rimraf": "^3.0.2",
+    "serverless": "^3.34.0",
+    "serverless-deployment-bucket": "^1.6.0",
+    "serverless-iam-roles-per-function": "^3.2.0",
+    "serverless-plugin-ifelse": "^1.0.7",
+    "webpack": "^5.88.2"
+  },
+  "dependencies": {
+    "@tmna-devops/ccscl-batch-job-common-lib": "1.0.1",
+    "axios": "^1.4.0",
+    "moment-timezone": "^0.5.43",
+    "pg": "^8.10.0",
+    "pg-promise": "^11.4.3"
+  },
+  "license": "UNLICENSED"
+}

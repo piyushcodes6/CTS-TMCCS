@@ -1,0 +1,1022 @@
+custom:
+  devAccountType: nonprod
+  qaAccountType: nonprod
+  uatAccountType: nonprod
+  prdAccountType: prod
+  drAccountType: prod
+
+  config: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/config.yml)}
+  servicePartsConfig: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/config-service-parts.yml)}
+  passVehiclesConfig: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/config-pass-vehicles.yml)}
+  summaryNQCConfig: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/config-summary-nqc.yml)}
+  detailedNQCConfig: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/config-detailed-nqc.yml)}
+  familyCodesConfig: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/config-family-codes.yml)}
+  
+  FCSchedulerConfig: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/scheduler-config-family-codes.yml)}
+
+plugins:
+  - serverless-deployment-bucket
+  - serverless-iam-roles-per-function
+
+service: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.config.appName}
+
+provider:
+  name: aws
+  runtime: ${self:custom.config.runtime}
+  stage: ${self:custom.config.environment}
+  region: ${self:custom.config.region}
+  stackName: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.config.appName}-npm-serverless
+  deploymentPrefix: serverless
+  versionFunctions: ${self:custom.config.versionFunctions}
+  #stack-tags to be created
+  stackTags:
+    AppID: ${self:custom.config.appID}
+    AppName: ${self:custom.config.appName}
+    CreatedByEmail: ${self:custom.config.createdByEmail}
+    CostCenter: ${self:custom.config.costCenter}
+    Environment: ${self:custom.config.environment}
+  #function-tags to be created
+  tags:
+    AppID: ${self:custom.config.appID}
+    AppName: ${self:custom.config.appName}
+    CreatedByEmail: ${self:custom.config.createdByEmail}
+    CostCenter: ${self:custom.config.costCenter}
+    Environment: ${self:custom.config.environment}
+  #S3 bucket  
+  deploymentBucket: 
+    name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.config.appName}
+    serverSideEncryption: AES256
+    blockPublicAccess: true
+    tags:
+      AppID: ${self:custom.config.appID}
+      AppName: ${self:custom.config.appName}
+      CreatedByEmail: ${self:custom.config.createdByEmail}
+      CostCenter: ${self:custom.config.costCenter}
+      Environment: ${self:custom.config.environment}
+  #VPC configurations
+  vpc: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/vpc.yml)}
+  #service wide environment variables
+  environment: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/env.yml)}
+  #Lambda-layers
+  #layers: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/layers.yml)}
+  iam:
+    role:
+      name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.config.appName}-lambda-execution-role
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "ssm:Get*"
+          Resource: "arn:aws:ssm:${self:custom.config.region}:${self:custom.config.accountId}:*" 
+        - Effect: "Allow"
+          Action:
+            - "secretsmanager:GetResourcePolicy"
+            - "secretsmanager:GetSecretValue"
+            - "secretsmanager:DescribeSecret"
+            - "secretsmanager:ListSecretVersionIds"
+          Resource: 
+            - "${self:custom.config.DBSecretArn}"
+        - Effect: "Allow"
+          Action:
+            - "secretsmanager:ListSecrets"
+          Resource: "*"
+        - Effect: "Allow"
+          Action:
+            - "lambda:InvokeFunction"
+          Resource: "arn:aws:lambda:${self:custom.config.region}:${self:custom.config.accountId}:function:*" 
+  eventBridge:
+    useCloudFormation: true
+
+functions:
+  service-parts-file-processor:
+    handler: src/${self:custom.servicePartsConfig.moduleId}.handler
+    name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.servicePartsConfig.moduleId}
+    description: ${self:custom.servicePartsConfig.description}
+    architecture: ${self:custom.servicePartsConfig.architecture}
+    memorySize: ${self:custom.servicePartsConfig.memorySize}
+    timeout: ${self:custom.servicePartsConfig.timeout}
+    logRetentionInDays: ${self:custom.servicePartsConfig.logRetentionInDays}
+    #Dead-letter-Queue
+    #onError: ${self:custom.config.DLQ}
+    #Concurrency variables
+    #reservedConcurrency: ${self:custom.servicePartsConfig.reservedConcurrency}
+    provisionedConcurrency: ${self:custom.servicePartsConfig.provisionedConcurrency}
+    environment: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/env-service-parts.yml)}
+    iamRoleStatementsInherit: true
+    iamRoleStatementsName: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.servicePartsConfig.moduleId}-lambda-execution-role
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "s3:GetObject"
+          - "s3:DeleteObject"
+        Resource: "arn:aws:s3:::${self:custom.config.S3BucketName}/inbound/fod/service-parts/*"
+      - Effect: "Allow"
+        Action:
+          - "s3:GetObject"
+          - "s3:PutObject"
+        Resource: "arn:aws:s3:::${self:custom.config.S3BucketName}/processed/*"
+    events:
+      - s3:
+          bucket: ${self:custom.config.S3BucketName}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: inbound/fod/service-parts
+            - suffix: .txt
+          existing: true
+          forceDeploy: true
+          
+  pass-vehicle-file-processor:
+    handler: src/${self:custom.passVehiclesConfig.moduleId}.handler
+    name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.passVehiclesConfig.moduleId}
+    description: ${self:custom.passVehiclesConfig.description}
+    architecture: ${self:custom.passVehiclesConfig.architecture}
+    memorySize: ${self:custom.passVehiclesConfig.memorySize}
+    timeout: ${self:custom.passVehiclesConfig.timeout}
+    logRetentionInDays: ${self:custom.passVehiclesConfig.logRetentionInDays}
+    #Dead-letter-Queue
+    #onError: ${self:custom.config.DLQ}
+    #Concurrency variables
+    #reservedConcurrency: ${self:custom.passVehiclesConfig.reservedConcurrency}
+    provisionedConcurrency: ${self:custom.passVehiclesConfig.provisionedConcurrency}
+    environment: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/env-pass-vehicles.yml)}
+    iamRoleStatementsInherit: true
+    iamRoleStatementsName: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.passVehiclesConfig.moduleId}-lambda-execution-role
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "s3:GetObject"
+          - "s3:DeleteObject"
+        Resource: "arn:aws:s3:::${self:custom.config.S3BucketName}/inbound/fod/pass/*"
+      - Effect: "Allow"
+        Action:
+          - "s3:GetObject"
+          - "s3:PutObject"
+        Resource: "arn:aws:s3:::${self:custom.config.S3BucketName}/processed/*"
+              
+  summary-nqc-file-processor:
+    handler: src/${self:custom.summaryNQCConfig.moduleId}.handler
+    name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.summaryNQCConfig.moduleId}
+    description: ${self:custom.summaryNQCConfig.description}
+    architecture: ${self:custom.summaryNQCConfig.architecture}
+    memorySize: ${self:custom.summaryNQCConfig.memorySize}
+    timeout: ${self:custom.summaryNQCConfig.timeout}
+    logRetentionInDays: ${self:custom.summaryNQCConfig.logRetentionInDays}
+    #Dead-letter-Queue
+    #onError: ${self:custom.config.DLQ}
+    #Concurrency variables
+    #reservedConcurrency: ${self:custom.summaryNQCConfig.reservedConcurrency}
+    provisionedConcurrency: ${self:custom.summaryNQCConfig.provisionedConcurrency}
+    environment: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/env-summary-nqc.yml)}
+    iamRoleStatementsInherit: true
+    iamRoleStatementsName: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.summaryNQCConfig.moduleId}-lambda-execution-role
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "s3:GetObject"
+          - "s3:DeleteObject"
+        Resource: "arn:aws:s3:::${self:custom.config.S3BucketName}/inbound/fod/summary-nqc/*"
+      - Effect: "Allow"
+        Action:
+          - "s3:GetObject"
+          - "s3:PutObject"
+        Resource: "arn:aws:s3:::${self:custom.config.S3BucketName}/processed/*"
+      
+  detailed-nqc-file-processor:
+    handler: src/${self:custom.detailedNQCConfig.moduleId}.handler
+    name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.detailedNQCConfig.moduleId}
+    description: ${self:custom.detailedNQCConfig.description}
+    architecture: ${self:custom.detailedNQCConfig.architecture}
+    memorySize: ${self:custom.detailedNQCConfig.memorySize}
+    timeout: ${self:custom.detailedNQCConfig.timeout}
+    logRetentionInDays: ${self:custom.detailedNQCConfig.logRetentionInDays}
+    #Dead-letter-Queue
+    #onError: ${self:custom.config.DLQ}
+    #Concurrency variables
+    #reservedConcurrency: ${self:custom.detailedNQCConfig.reservedConcurrency}
+    provisionedConcurrency: ${self:custom.detailedNQCConfig.provisionedConcurrency}
+    environment: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/env-detailed-nqc.yml)}
+    iamRoleStatementsInherit: true
+    iamRoleStatementsName: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.detailedNQCConfig.moduleId}-lambda-execution-role
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "s3:GetObject"
+          - "s3:DeleteObject"
+          - "s3:ListBucket"
+        Resource:
+          - "arn:aws:s3:::${self:custom.config.S3BucketName}"
+          - "arn:aws:s3:::${self:custom.config.S3BucketName}/inbound/fod/detailed-nqc/*"
+      - Effect: "Allow"
+        Action:
+          - "s3:GetObject"
+          - "s3:PutObject"
+        Resource: "arn:aws:s3:::${self:custom.config.S3BucketName}/processed/*"
+    events:
+      - s3:
+          bucket: ${self:custom.config.S3BucketName}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: inbound/fod/detailed-nqc
+            - suffix: .txt
+          existing: true
+          forceDeploy: true
+    
+  family-codes-data-loader:
+    handler: src/${self:custom.familyCodesConfig.moduleId}.handler
+    name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId}
+    description: ${self:custom.familyCodesConfig.description}
+    architecture: ${self:custom.familyCodesConfig.architecture}
+    memorySize: ${self:custom.familyCodesConfig.memorySize}
+    timeout: ${self:custom.familyCodesConfig.timeout}
+    logRetentionInDays: ${self:custom.familyCodesConfig.logRetentionInDays}
+    #Dead-letter-Queue
+    #onError: ${self:custom.config.DLQ}
+    #Concurrency variables
+    #reservedConcurrency: ${self:custom.familyCodesConfig.reservedConcurrency}
+    provisionedConcurrency: ${self:custom.familyCodesConfig.provisionedConcurrency}
+    environment: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/env-family-codes.yml)}
+    iamRoleStatementsInherit: true
+    iamRoleStatementsName: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId}-lambda-execution-role
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "secretsmanager:GetResourcePolicy"
+          - "secretsmanager:GetSecretValue"
+          - "secretsmanager:DescribeSecret"
+          - "secretsmanager:ListSecretVersionIds"
+        Resource: 
+          - "${self:custom.familyCodesConfig.FODSecretArn}"
+    events:
+      - schedule:
+          #method: scheduler
+          name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId}-TMMK
+          description: A Schedule to trigger ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId} lambda for TMMK
+          rate: ${self:custom.FCSchedulerConfig.TMMK.schedule}
+          enabled: ${self:custom.FCSchedulerConfig.TMMK.enabled}
+          input:
+            namcId: '01'
+            unitOnly: '${self:custom.FCSchedulerConfig.TMMK.unitOnly}'
+
+      - schedule:
+          #method: scheduler
+          name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId}-TMMKUnitOnly
+          description: A Schedule to trigger ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId} lambda for TMMKUnitOnly
+          rate: ${self:custom.FCSchedulerConfig.TMMKUnitOnly.schedule}
+          enabled: ${self:custom.FCSchedulerConfig.TMMKUnitOnly.enabled}
+          input:
+            namcId: '01'
+            unitOnly: '${self:custom.FCSchedulerConfig.TMMKUnitOnly.unitOnly}'
+            
+      - schedule:
+          #method: scheduler
+          name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId}-TMMI
+          description: A Schedule to trigger ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId} lambda for TMMI
+          rate: ${self:custom.FCSchedulerConfig.TMMI.schedule}
+          enabled: ${self:custom.FCSchedulerConfig.TMMI.enabled}
+          input:
+            namcId: '02'
+            unitOnly: '${self:custom.FCSchedulerConfig.TMMI.unitOnly}'
+            
+      - schedule:
+          #method: scheduler
+          name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId}-TMMTX
+          description: A Schedule to trigger ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId} lambda for TMMTX
+          rate: ${self:custom.FCSchedulerConfig.TMMTX.schedule}
+          enabled: ${self:custom.FCSchedulerConfig.TMMTX.enabled}
+          input:
+            namcId: '03'
+            unitOnly: '${self:custom.FCSchedulerConfig.TMMTX.unitOnly}'
+            
+      - schedule:
+          #method: scheduler
+          name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId}-TMMMS
+          description: A Schedule to trigger ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId} lambda for TMMMS
+          rate: ${self:custom.FCSchedulerConfig.TMMMS.schedule}
+          enabled: ${self:custom.FCSchedulerConfig.TMMMS.enabled}
+          input:
+            namcId: '04'
+            unitOnly: '${self:custom.FCSchedulerConfig.TMMMS.unitOnly}'
+            
+      - schedule:
+          #method: scheduler
+          name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId}-TMMWV
+          description: A Schedule to trigger ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId} lambda for TMMWV
+          rate: ${self:custom.FCSchedulerConfig.TMMWV.schedule}
+          enabled: ${self:custom.FCSchedulerConfig.TMMWV.enabled}
+          input:
+            namcId: '14'
+            unitOnly: '${self:custom.FCSchedulerConfig.TMMWV.unitOnly}'
+
+      - schedule:
+          #method: scheduler
+          name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId}-TMMAL
+          description: A Schedule to trigger ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId} lambda for TMMAL
+          rate: ${self:custom.FCSchedulerConfig.TMMAL.schedule}
+          enabled: ${self:custom.FCSchedulerConfig.TMMAL.enabled}
+          input:
+            namcId: '15'
+            unitOnly: '${self:custom.FCSchedulerConfig.TMMAL.unitOnly}'
+            
+      - schedule:
+          #method: scheduler
+          name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId}-TMMBC
+          description: A Schedule to trigger ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId} lambda for TMMBC
+          rate: ${self:custom.FCSchedulerConfig.TMMBC.schedule}
+          enabled: ${self:custom.FCSchedulerConfig.TMMBC.enabled}
+          input:
+            namcId: '20'
+            unitOnly: '${self:custom.FCSchedulerConfig.TMMBC.unitOnly}'
+            
+      - schedule:
+          #method: scheduler
+          name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId}-TMMGT
+          description: A Schedule to trigger ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId} lambda for TMMGT
+          rate: ${self:custom.FCSchedulerConfig.TMMGT.schedule}
+          enabled: ${self:custom.FCSchedulerConfig.TMMGT.enabled}
+          input:
+            namcId: '25'
+            unitOnly: '${self:custom.FCSchedulerConfig.TMMGT.unitOnly}'
+            
+      - schedule:
+          #method: scheduler
+          name: ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId}-MTMUS
+          description: A Schedule to trigger ${self:custom.config.appID}-${self:custom.config.environment}-${self:custom.familyCodesConfig.moduleId} lambda for MTMUS
+          rate: ${self:custom.FCSchedulerConfig.MTMUS.schedule}
+          enabled: ${self:custom.FCSchedulerConfig.MTMUS.enabled}
+          input:
+            namcId: '26'
+            unitOnly: '${self:custom.FCSchedulerConfig.MTMUS.unitOnly}'
+            
+  
+resources:
+  Parameters:
+    VPCPresent:
+      Type: String
+      Default: ${self:custom.config.VPCPresent}
+    DLQPresent:
+      Type: String
+      Default: ${self:custom.config.DLQPresent}
+    CustomIAMPresent:
+      Type: String
+      Default: ${self:custom.config.CustomIAMPresent}
+    
+  Conditions:
+    Isvpcpresent: !Equals 
+      - !Ref VPCPresent
+      - YES
+    IsDLQpresent: !Equals
+      - !Ref DLQPresent
+      - YES
+    IsCustomIAMPresent: !Equals
+      - !Ref CustomIAMPresent
+      - YES
+
+  Resources:
+    fromEmailAddressDetailedNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.detailedNQCConfig.moduleId}/from.email.address
+        Type: String
+        Value: ${self:custom.detailedNQCConfig.fromEmailAddress}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMKDetailedNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.detailedNQCConfig.moduleId}/TMMK/to.email.address
+        Type: String
+        Value: ${self:custom.detailedNQCConfig.toEmailAddressTMMK}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMIDetailedNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.detailedNQCConfig.moduleId}/TMMI/to.email.address
+        Type: String
+        Value: ${self:custom.detailedNQCConfig.toEmailAddressTMMI}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMTXDetailedNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.detailedNQCConfig.moduleId}/TMMTX/to.email.address
+        Type: String
+        Value: ${self:custom.detailedNQCConfig.toEmailAddressTMMTX}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMMSDetailedNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.detailedNQCConfig.moduleId}/TMMMS/to.email.address
+        Type: String
+        Value: ${self:custom.detailedNQCConfig.toEmailAddressTMMS}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMWVDetailedNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.detailedNQCConfig.moduleId}/TMMWV/to.email.address
+        Type: String
+        Value: ${self:custom.detailedNQCConfig.toEmailAddressTMMWV}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMALDetailedNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.detailedNQCConfig.moduleId}/TMMAL/to.email.address
+        Type: String
+        Value: ${self:custom.detailedNQCConfig.toEmailAddressTMMAL}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMBCDetailedNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.detailedNQCConfig.moduleId}/TMMBC/to.email.address
+        Type: String
+        Value: ${self:custom.detailedNQCConfig.toEmailAddressTMMBC}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMGTDetailedNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.detailedNQCConfig.moduleId}/TMMGT/to.email.address
+        Type: String
+        Value: ${self:custom.detailedNQCConfig.toEmailAddressTMMKGT}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressMTMUSDetailedNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.detailedNQCConfig.moduleId}/MTMUS/to.email.address
+        Type: String
+        Value: ${self:custom.detailedNQCConfig.toEmailAddressMTMUS}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}           
+
+    fromEmailAddressFamilyCodes:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.familyCodesConfig.moduleId}/from.email.address
+        Type: String
+        Value: ${self:custom.familyCodesConfig.fromEmailAddress}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMKFamilyCodes:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.familyCodesConfig.moduleId}/TMMK/to.email.address
+        Type: String
+        Value: ${self:custom.familyCodesConfig.toEmailAddressTMMK}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMIFamilyCodes:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.familyCodesConfig.moduleId}/TMMI/to.email.address
+        Type: String
+        Value: ${self:custom.familyCodesConfig.toEmailAddressTMMI}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMTXFamilyCodes:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.familyCodesConfig.moduleId}/TMMTX/to.email.address
+        Type: String
+        Value: ${self:custom.familyCodesConfig.toEmailAddressTMMTX}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMSFamilyCodes:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.familyCodesConfig.moduleId}/TMMMS/to.email.address
+        Type: String
+        Value: ${self:custom.familyCodesConfig.toEmailAddressTMMS}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMWVFamilyCodes:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.familyCodesConfig.moduleId}/TMMWV/to.email.address
+        Type: String
+        Value: ${self:custom.familyCodesConfig.toEmailAddressTMMWV}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMALFamilyCodes:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.familyCodesConfig.moduleId}/TMMAL/to.email.address
+        Type: String
+        Value: ${self:custom.familyCodesConfig.toEmailAddressTMMAL}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMBCFamilyCodes:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.familyCodesConfig.moduleId}/TMMBC/to.email.address
+        Type: String
+        Value: ${self:custom.familyCodesConfig.toEmailAddressTMMBC}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMGTFamilyCodes:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.familyCodesConfig.moduleId}/TMMGT/to.email.address
+        Type: String
+        Value: ${self:custom.familyCodesConfig.toEmailAddressTMMKGT}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressMTMUSFamilyCodes:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.familyCodesConfig.moduleId}/MTMUS/to.email.address
+        Type: String
+        Value: ${self:custom.familyCodesConfig.toEmailAddressMTMUS}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}           
+
+    fromEmailAddressPassVehicles:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.passVehiclesConfig.moduleId}/from.email.address
+        Type: String
+        Value: ${self:custom.passVehiclesConfig.fromEmailAddress}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMKPassVehicles:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.passVehiclesConfig.moduleId}/TMMK/to.email.address
+        Type: String
+        Value: ${self:custom.passVehiclesConfig.toEmailAddressTMMK}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMIPassVehicles:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.passVehiclesConfig.moduleId}/TMMI/to.email.address
+        Type: String
+        Value: ${self:custom.passVehiclesConfig.toEmailAddressTMMI}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMTXPassVehicles:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.passVehiclesConfig.moduleId}/TMMTX/to.email.address
+        Type: String
+        Value: ${self:custom.passVehiclesConfig.toEmailAddressTMMTX}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMSPassVehicles:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.passVehiclesConfig.moduleId}/TMMMS/to.email.address
+        Type: String
+        Value: ${self:custom.passVehiclesConfig.toEmailAddressTMMS}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMWVPassVehicles:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.passVehiclesConfig.moduleId}/TMMWV/to.email.address
+        Type: String
+        Value: ${self:custom.passVehiclesConfig.toEmailAddressTMMWV}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMALPassVehicles:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.passVehiclesConfig.moduleId}/TMMAL/to.email.address
+        Type: String
+        Value: ${self:custom.passVehiclesConfig.toEmailAddressTMMAL}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMBCPassVehicles:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.passVehiclesConfig.moduleId}/TMMBC/to.email.address
+        Type: String
+        Value: ${self:custom.passVehiclesConfig.toEmailAddressTMMBC}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMGTPassVehicles:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.passVehiclesConfig.moduleId}/TMMGT/to.email.address
+        Type: String
+        Value: ${self:custom.passVehiclesConfig.toEmailAddressTMMKGT}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressMTMUSPassVehicles:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.passVehiclesConfig.moduleId}/MTMUS/to.email.address
+        Type: String
+        Value: ${self:custom.passVehiclesConfig.toEmailAddressMTMUS}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}  
+
+    fromEmailAddressServiceParts:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.servicePartsConfig.moduleId}/from.email.address
+        Type: String
+        Value: ${self:custom.servicePartsConfig.fromEmailAddress}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMKServiceParts:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.servicePartsConfig.moduleId}/TMMK/to.email.address
+        Type: String
+        Value: ${self:custom.servicePartsConfig.toEmailAddressTMMK}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMIServiceParts:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.servicePartsConfig.moduleId}/TMMI/to.email.address
+        Type: String
+        Value: ${self:custom.servicePartsConfig.toEmailAddressTMMI}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMTXServiceParts:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.servicePartsConfig.moduleId}/TMMTX/to.email.address
+        Type: String
+        Value: ${self:custom.servicePartsConfig.toEmailAddressTMMTX}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMSServiceParts:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.servicePartsConfig.moduleId}/TMMMS/to.email.address
+        Type: String
+        Value: ${self:custom.servicePartsConfig.toEmailAddressTMMS}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMWVServiceParts:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.servicePartsConfig.moduleId}/TMMWV/to.email.address
+        Type: String
+        Value: ${self:custom.servicePartsConfig.toEmailAddressTMMWV}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMALServiceParts:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.servicePartsConfig.moduleId}/TMMAL/to.email.address
+        Type: String
+        Value: ${self:custom.servicePartsConfig.toEmailAddressTMMAL}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMBCServiceParts:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.servicePartsConfig.moduleId}/TMMBC/to.email.address
+        Type: String
+        Value: ${self:custom.servicePartsConfig.toEmailAddressTMMBC}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMGTServiceParts:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.servicePartsConfig.moduleId}/TMMGT/to.email.address
+        Type: String
+        Value: ${self:custom.servicePartsConfig.toEmailAddressTMMKGT}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressMTMUSServiceParts:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.servicePartsConfig.moduleId}/MTMUS/to.email.address
+        Type: String
+        Value: ${self:custom.servicePartsConfig.toEmailAddressMTMUS}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}         
+
+    fromEmailAddressSummaryNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.summaryNQCConfig.moduleId}/from.email.address
+        Type: String
+        Value: ${self:custom.summaryNQCConfig.fromEmailAddress}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMKSummaryNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.summaryNQCConfig.moduleId}/TMMK/to.email.address
+        Type: String
+        Value: ${self:custom.summaryNQCConfig.toEmailAddressTMMK}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMISummaryNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.summaryNQCConfig.moduleId}/TMMI/to.email.address
+        Type: String
+        Value: ${self:custom.summaryNQCConfig.toEmailAddressTMMI}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMTXSummaryNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.summaryNQCConfig.moduleId}/TMMTX/to.email.address
+        Type: String
+        Value: ${self:custom.summaryNQCConfig.toEmailAddressTMMTX}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMSSummaryNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.summaryNQCConfig.moduleId}/TMMMS/to.email.address
+        Type: String
+        Value: ${self:custom.summaryNQCConfig.toEmailAddressTMMS}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMWVSummaryNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.summaryNQCConfig.moduleId}/TMMWV/to.email.address
+        Type: String
+        Value: ${self:custom.summaryNQCConfig.toEmailAddressTMMWV}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMALSummaryNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.summaryNQCConfig.moduleId}/TMMAL/to.email.address
+        Type: String
+        Value: ${self:custom.summaryNQCConfig.toEmailAddressTMMAL}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMBCSummaryNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.summaryNQCConfig.moduleId}/TMMBC/to.email.address
+        Type: String
+        Value: ${self:custom.summaryNQCConfig.toEmailAddressTMMBC}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressTMMGTSummaryNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.summaryNQCConfig.moduleId}/TMMGT/to.email.address
+        Type: String
+        Value: ${self:custom.summaryNQCConfig.toEmailAddressTMMKGT}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}
+
+    toEmailAddressMTMUSSummaryNQC:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /${self:custom.config.appID}/${self:custom.config.environment}/${self:custom.config.appName}/${self:custom.summaryNQCConfig.moduleId}/MTMUS/to.email.address
+        Type: String
+        Value: ${self:custom.summaryNQCConfig.toEmailAddressMTMUS}
+        Tags:
+          AppID: ${self:custom.config.appID}
+          AppName: ${self:custom.config.appName}
+          Environment: ${self:custom.config.environment}
+          CreatedByEmail : ${self:custom.config.createdByEmail}
+          CostCenter : ${self:custom.config.costCenter}           

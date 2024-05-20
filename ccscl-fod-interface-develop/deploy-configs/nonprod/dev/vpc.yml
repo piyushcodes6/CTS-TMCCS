@@ -1,0 +1,7 @@
+###### Define your VPC Variables,if needed.
+
+securityGroupIds: 
+  - sg-05a3990cfcc6ecb5b
+subnetIds: 
+  - subnet-04f8ec698b4e11495
+  - subnet-0473da4a9e574982a

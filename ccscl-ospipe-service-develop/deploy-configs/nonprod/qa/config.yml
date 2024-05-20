@@ -1,0 +1,83 @@
+### Major Input Variables are defined here.
+---
+
+#######Required input variables##########
+appID: 01353-00
+appOwner: ccscl
+appName: ccs-ospipe-service
+appPrefix: ccs
+createdByEmail: suriyanarayanan.ramanujam@toyota.com
+accountType: Nonprod
+accountId: 801624696547
+costCenter: 955042
+region: us-west-2
+environment: qa
+runtime: nodejs16.x
+kmsKeyArn: default
+deploymentBucket:
+  name: ccs-qa-ospipe-service-artifacts
+  bucketPolicy: {"Version":"2012-10-17","Statement":[{"Sid":"DenyIncorrectEncryptionHeader","Effect":"Deny","Principal":"*","Action":"s3:PutObject","Resource":"arn:aws:s3:::ccs-qa-ospipe-service-artifacts/*","Condition":{"StringNotEquals":{"s3:x-amz-server-side-encryption":"AES256"}}},{"Sid":"DenyUnEncryptedObjectUploads","Effect":"Deny","Principal":"*","Action":"s3:PutObject","Resource":"arn:aws:s3:::ccs-qa-ospipe-service-artifacts/*","Condition":{"Null":{"s3:x-amz-server-side-encryption":"true"}}},{"Sid":"ForceSSLOnlyAccess","Effect":"Deny","Principal":"*","Action":"s3:*","Resource":["arn:aws:s3:::ccs-qa-ospipe-service-artifacts/*","arn:aws:s3:::ccs-qa-ospipe-service-artifacts"],"Condition":{"Bool":{"aws:SecureTransport":"false"}}}]}
+serviceName: ospipe-service
+handler: dist/handler/ospipe-service-handler
+
+
+########Optional#################
+
+VPCPresent: YES #Change to YES, if needed
+VpcId: vpc-06f840723d84393fa
+frameworkVersion: default
+description: CCS OSPipe Services
+architecture: arm64 	#Allowed values: "arm64", "x86_64"
+memorySize: 1024 #Allowed values: 128-10240
+timeout: 29 #Allowed values: 0-900 (0-29 if using API Gateway)
+logRetention: 30 # Possible values are: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, and 3653.
+
+###########Concurrency Configuration
+reservedConcurrency: 100 #Allowed values: 0-1000,default-100
+provisionedConcurrency: 0 #Allowed values: 0-900
+
+###########Version Config
+versionFunctions: true
+
+###########Xray
+tracing: Active
+
+###########IAM
+CustomIAMPresent: YES #Change to YES, if needed
+
+###########Dead-Letter-Queue
+DLQ: null #Default Value
+DLQPresent: NO #Change to YES, if needed
+
+###########API GateWay Config
+apiGateway:
+  restApiId: x3lo8o6v78
+  restApiRootResourceId: 2azsd0krm4
+  authorizerId: i4uykb
+  lambdaAuthorizerArn: arn:aws:lambda:us-west-2:801624696547:function:ccs-qa-fn-lambda-authz
+
+
+###########RDS Config
+RDSPresent: YES #Change to YES, if needed
+SecretArn: arn:aws:secretsmanager:us-west-2:801624696547:secret:ccs-qa-db-details-cBiMQP
+ResourceArn: arn:aws:rds:us-west-2:801624696547:db:ccs-qa-0
+ #If no RDS required
+RDSDebugLogging: false
+RDSEngineFamily: POSTGRESQL #Valid values: MYSQL | POSTGRESQL
+RDSIdleClienttimeout: 120
+IAMAuth: REQUIRED #Valid Values: DISABLED | REQUIRED
+RDSRequireTLS: false
+
+###########ALB & HTTP Config
+
+isALBRequired: NO #OPTIONS: YES or NO
+isHTTPRequired: YES #OPTIONS: YES or NO#
+intervalSeconds: 35
+timeoutSeconds: 30
+healthyThresholdCount: 5
+unhealthyThresholdCount: 5
+priority: 1
+httpCode: 200
+
+###########Custom Domain Config
+domainName: ccsqa.toyota.com

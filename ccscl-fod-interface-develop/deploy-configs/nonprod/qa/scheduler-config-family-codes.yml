@@ -1,0 +1,49 @@
+TMMK:
+  unitOnly: "false"
+  schedule: cron(0 9 * * ? *)
+  enabled: true
+
+TMMKUnitOnly:
+  unitOnly: "true"
+  schedule: cron(0 9 * * ? *)
+  enabled: true
+
+TMMI:
+  unitOnly: "false"
+  schedule: cron(0 9 * * ? *)
+  enabled: true
+
+TMMTX:
+  unitOnly: "false"
+  schedule: cron(0 9 * * ? *)
+  enabled: true
+
+TMMMS:
+  unitOnly: "false"
+  schedule: cron(0 9 * * ? *)
+  enabled: true
+
+TMMWV:
+  unitOnly: "true" 
+  schedule: cron(0 9 * * ? *)
+  enabled: true
+
+TMMAL:
+  unitOnly: "true" 
+  schedule: cron(0 9 * * ? *)
+  enabled: true 
+
+TMMBC:
+  unitOnly: "false"
+  schedule: cron(0 9 * * ? *)
+  enabled: true
+
+TMMGT:
+  unitOnly: "false"
+  schedule: cron(0 9 * * ? *)
+  enabled: true
+
+MTMUS:
+  unitOnly: "false"
+  schedule: cron(0 9 * * ? *)
+  enabled: true

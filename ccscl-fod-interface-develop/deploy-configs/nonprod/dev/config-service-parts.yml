@@ -1,0 +1,23 @@
+########### Function Configuration
+description: Process Service Parts file sent by FOD
+architecture: arm64 	#Allowed values: "arm64", "x86_64"
+memorySize: 1024 #Allowed values: 128-10240
+timeout: 30 #Allowed values: 0-900 (0-29 if using API Gateway)
+logRetentionInDays: 3 # Possible values are: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, and 3653.
+moduleId: service-parts-file-processor
+
+########### Concurrency Configuration
+reservedConcurrency: 100 #Allowed values: 0-1000,default-100
+provisionedConcurrency: 0 #Allowed values: 0-900
+
+########### Notification Email config
+fromEmailAddress: batchjob.communication@ccsdev.toyota.com
+toEmailAddressTMMK: mayukh.ray@toyota.com, piyush.goswami@toyota.com, anish.gupta@toyota.com, james.cyriac@toyota.com
+toEmailAddressTMMI: mayukh.ray@toyota.com, piyush.goswami@toyota.com, anish.gupta@toyota.com, james.cyriac@toyota.com
+toEmailAddressTMMTX: mayukh.ray@toyota.com, piyush.goswami@toyota.com, anish.gupta@toyota.com, james.cyriac@toyota.com
+toEmailAddressTMMS: mayukh.ray@toyota.com, piyush.goswami@toyota.com, anish.gupta@toyota.com, james.cyriac@toyota.com 
+toEmailAddressTMMWV: mayukh.ray@toyota.com, piyush.goswami@toyota.com, anish.gupta@toyota.com, james.cyriac@toyota.com
+toEmailAddressTMMAL: mayukh.ray@toyota.com, piyush.goswami@toyota.com, anish.gupta@toyota.com, james.cyriac@toyota.com
+toEmailAddressTMMBC: mayukh.ray@toyota.com, piyush.goswami@toyota.com, anish.gupta@toyota.com, james.cyriac@toyota.com
+toEmailAddressTMMKGT: mayukh.ray@toyota.com, piyush.goswami@toyota.com, anish.gupta@toyota.com, james.cyriac@toyota.com
+toEmailAddressMTMUS: mayukh.ray@toyota.com, piyush.goswami@toyota.com, anish.gupta@toyota.com, james.cyriac@toyota.com 

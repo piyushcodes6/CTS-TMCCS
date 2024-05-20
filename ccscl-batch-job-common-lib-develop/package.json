@@ -1,0 +1,29 @@
+{
+  "name": "@tmna-devops/ccscl-batch-job-common-lib",
+  "version": "1.0.0",
+  "description": "Common library for batch jobs",
+  "requiredNodeVersion": "16.20.0",
+  "main": "src/index.js",
+  "scripts": {
+    "clean": "rimraf tmna-devops-ccscl-batch-job-common-lib*.tgz",
+    "build": "npm run clean",
+    "test": "",
+    "lint": "tslint \"src/**/*.ts\" --force"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-lambda": "^3.503.1",
+    "@aws-sdk/client-s3": "^3.503.1",
+    "@aws-sdk/client-scheduler": "^3.405.0",
+    "@aws-sdk/client-ssm": "^3.503.1",
+    "rimraf": "^3.0.2"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@aws-sdk/client-lambda": "^3.503.1",
+    "@aws-sdk/client-s3": "^3.503.1",
+    "@aws-sdk/client-scheduler": "^3.405.0",
+    "@aws-sdk/client-ssm": "^3.503.1",
+    "moment": "^2.29.4",
+    "moment-timezone": "^0.5.43"
+  }
+}

@@ -1,0 +1,36 @@
+### Major Input Variables are defined here.
+---
+
+#######Required input variables##########
+appID: ccs
+appName: fod-interface
+createdByEmail: mayukh.ray@toyota.com
+accountType: prod
+accountId: 560548741852
+costCenter: 955042
+region: us-east-1
+environment: prod
+runtime: nodejs16.x
+#kmsKeyArn: 
+#deploymentBucketName: 
+
+########Optional#################
+VPCPresent: YES #Change to YES, if needed
+frameworkVersion: default
+
+###########Version Config
+versionFunctions: false
+
+###########IAM
+#iamrole: IamRoleLambdaExecution #Default IAM role.
+CustomIAMPresent: NO #Change to YES, if needed
+
+###########Dead-Letter-Queue
+DLQ: null #Default Value
+DLQPresent: NO #Change to YES, if needed
+
+###########RDS Config
+DBSecretArn: arn:aws:secretsmanager:us-east-1:560548741852:secret:ccs-prod-db-details-6ddY7J
+
+########### Events Config
+S3BucketName: ccs-prod-data-files

@@ -1,0 +1,25 @@
+########### Function Configuration
+description: Fetch Family Codes by calling FOD API
+architecture: arm64 	#Allowed values: "arm64", "x86_64"
+memorySize: 2048 #Allowed values: 128-10240
+timeout: 180 #Allowed values: 0-900 (0-29 if using API Gateway)
+logRetentionInDays: 3 # Possible values are: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, and 3653.
+moduleId: family-codes-data-loader
+
+########### Concurrency Configuration
+reservedConcurrency: 100 #Allowed values: 0-1000,default-100
+provisionedConcurrency: 0 #Allowed values: 0-900
+
+FODSecretArn: arn:aws:secretsmanager:us-west-2:801624696547:secret:ccs-qa-fod-details-ySrdsi
+
+########### Notification Email config
+fromEmailAddress: batchjob.communication@ccsqa.toyota.com
+toEmailAddressTMMK: ccs_is@tema.toyota.com
+toEmailAddressTMMI: ccs_is@tema.toyota.com
+toEmailAddressTMMTX: ccs_is@tema.toyota.com
+toEmailAddressTMMS: ccs_is@tema.toyota.com 
+toEmailAddressTMMWV: ccs_is@tema.toyota.com
+toEmailAddressTMMAL: ccs_is@tema.toyota.com
+toEmailAddressTMMBC: ccs_is@tema.toyota.com
+toEmailAddressTMMKGT: ccs_is@tema.toyota.com
+toEmailAddressMTMUS: ccs_is@tema.toyota.com 

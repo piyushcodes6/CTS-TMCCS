@@ -1,0 +1,2 @@
+INSERT INTO tmm.ccs_access_type(access_type_id, name, description)VALUES (1, 'READ ONLY', 'View data only');
+INSERT INTO tmm.ccs_access_type(access_type_id, name, description)VALUES (2, 'UPDATE', 'View and Modify data');

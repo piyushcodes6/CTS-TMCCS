@@ -1,0 +1,164 @@
+custom:
+  devAccountType: nonprod
+  qaAccountType: nonprod
+  uatAccountType: nonprod
+  prdAccountType: prod
+  config: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/config.yml)}
+  vpc-config: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/vpc.yml)}
+  deploymentBucket:
+    versioning: true
+    blockPublicAccess: true
+    policy: ${self:custom.config.deploymentBucket.bucketPolicy}
+    tags:
+      - Key: tmna:app-name
+        Value: ${self:custom.config.appName}
+      - Key: tmna:environment
+        Value: ${self:custom.config.environment}
+      - Key: tmna:app-id
+        Value: ${self:custom.config.appID}
+      - Key: tmna:git_revision
+        Value: security-defense-v2.0.1
+      - Key: tmna:git_url
+        Value: ssh://git@github.com/Toyota-Motor-North-America/ccscl-ospipe-service.git
+      - Key: tmna:created-by-email
+        Value: ${self:custom.config.createdByEmail}
+
+service: ${self:custom.config.serviceName}
+provider:
+  lambdaHashingVersion: 20201221
+  name: aws
+  runtime: ${self:custom.config.runtime}
+  stage: ${self:custom.config.environment}
+  region: ${self:custom.config.region}
+  stackName: ${self:custom.config.appOwner}-${self:custom.config.environment}-${self:custom.config.serviceName}-npm-serverless
+  memorySize: ${self:custom.config.memorySize}
+  timeout: ${self:custom.config.timeout}
+  logRetentionInDays: ${self:custom.config.logRetention}
+  deploymentPrefix: serverless
+  versionFunctions: ${self:custom.config.versionFunctions}
+  architecture: ${self:custom.config.architecture}
+  #stack-tags to be created
+  stackTags:
+    AppName: ${self:custom.config.appName}
+    AppOwner: ${self:custom.config.appOwner}
+    CreatedByEmail: ${self:custom.config.createdByEmail}
+    CostCenter: ${self:custom.config.costCenter}
+    Environment: ${self:custom.config.environment}
+  #function-tags to be created
+  tags:
+    AppName: ${self:custom.config.appName}
+    AppOwner: ${self:custom.config.appOwner}
+    CreatedByEmail: ${self:custom.config.createdByEmail}
+    CostCenter: ${self:custom.config.costCenter}
+    Environment: ${self:custom.config.environment}
+  #S3 bucket  
+  deploymentBucket: 
+    name: ${self:custom.config.deploymentBucket.name}
+    serverSideEncryption: AES256
+  #VPC configurations
+  vpc: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/vpc.yml)}
+  #service wide environment variables
+  environment: ${file(./deploy-configs/${self:custom.${opt:stage}AccountType}/${opt:stage}/env.yml)}
+  apiGateway:
+   restApiId: ${self:custom.config.apiGateway.restApiId}
+   restApiRootResourceId: ${self:custom.config.apiGateway.restApiRootResourceId}
+
+frameworkVersion: "^3.30.0"
+plugins:
+  - serverless-plugin-ifelse
+  - serverless-deployment-bucket
+       
+resources:
+  Parameters:
+    Secrets:
+      Type: String
+      Default: ${self:custom.config.SecretArn}
+    RDSPresent:
+      Type: String
+      Default: ${self:custom.config.RDSPresent}
+    VPCPresent:
+      Type: String
+      Default: ${self:custom.config.VPCPresent}
+    CustomIAMPresent:
+      Type: String
+      Default: ${self:custom.config.CustomIAMPresent}
+  
+  Conditions:
+    Isrdspresent: !Equals 
+      - !Ref RDSPresent
+      - YES
+    Isvpcpresent: !Equals 
+      - !Ref VPCPresent
+      - YES
+    IsCustomIAMPresent: !Equals
+      - !Ref CustomIAMPresent
+      - YES
+    
+  Resources:
+    ccsOsPipeServiceRole:
+      Type: AWS::IAM::Role
+      Properties:
+        #1. VPC Read + Cloudwatch + Secrets Manager + SSM
+        RoleName: ${self:custom.config.appOwner}-${self:custom.config.environment}-${self:custom.config.serviceName}-lambda-exec-role
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: ${self:custom.config.appOwner}-${self:custom.config.environment}-${self:custom.config.serviceName}-lambda-exec-policy
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                #VPC
+                - Effect: Allow
+                  Action:
+                    - ec2:CreateNetworkInterface
+                    - ec2:DeleteNetworkInterface
+                    - ec2:DescribeInstances
+                    - ec2:DescribeNetworkInterfaces
+                    - ec2:AttachNetworkInterface
+                  Resource: "*"                   
+                #cloudwatch
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogGroup
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
+                  Resource: arn:aws:logs:${self:custom.config.region}:${self:custom.config.accountId}:*
+                #secretsmanager
+                - Effect: Allow
+                  Action:
+                    - secretsmanager:GetSecretValue
+                  Resource: ${self:custom.config.SecretArn}
+                #ssm
+                - Effect: Allow
+                  Action:
+                    - ssm:GetParameter
+                    - ssm:GetParameters
+                    - ssm:GetParametersByPath
+                  Resource: arn:aws:ssm:*:${self:custom.config.accountId}:parameter/*
+functions:
+  ccs-ospipe-service:
+    handler: ${self:custom.config.handler}.processOsPipeData
+    name: ${self:custom.config.appPrefix}-${self:custom.config.environment}-ospipe-service
+    description: ${self:custom.config.description}
+    role: ccsOsPipeServiceRole
+    timeout: ${self:custom.config.timeout}
+    events:      
+      - http:         
+          path: os-pipe/process-pi-data
+          method: post 
+          cors: 
+            headers:
+              - Access-Control-Allow-Origin
+              - Authorization
+              - Content-Type
+              - Workdayid
+          authorizer:
+            type: TOKEN
+            authorizerId: ${self:custom.config.apiGateway.authorizerId}
+            

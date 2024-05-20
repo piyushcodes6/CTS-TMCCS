@@ -1,0 +1,66 @@
+{
+  "name": "ccscl-ospipe-service",
+  "version": "1.0.0",
+  "description": "npm serverless application using typescript",
+  "requiredNodeVersion": "16.20.0",
+  "scripts": {
+    "serverless": "serverless",
+    "tsc": "tsc",
+    "clean": "rimraf ./dist",
+    "package": "rimraf *.zip && zip -rq temp-app.zip dist node_modules package*.json serverless.yml deploy-configs webpack.config.js source-map-install.js && mv temp-app.zip",
+    "build": "rimraf ./dist && tsc",
+    "test": "mocha -r ts-node/register ./**/*.spec.ts",
+    "deploy": "npm run build && serverless deploy",
+    "lint": "tslint \"src/**/*.ts\" --force",
+    "local": "serverless invoke local -f hello",
+    "local-ospipe-service": "npm run build && serverless invoke local -s dev -p events/os-pipe-event.json -f ccs-ospipe-service"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.136",
+    "@types/chai": "^4.1.7",
+    "@types/mocha": "^5.2.5",
+    "@types/node": "^16.18.18",
+    "rimraf": "^3.0.2",
+    "chai": "^4.2.0",
+    "mocha": "^5.2.0",
+    "serverless": "^3.30.0",
+    "serverless-deployment-bucket": "^1.6.0",
+    "serverless-domain-manager": "^6.4.4",
+    "serverless-plugin-ifelse": "^1.0.7",
+    "serverless-webpack": "^5.1.1",
+    "source-map-support": "^0.5.6",
+    "ts-lint": "^4.5.1",
+    "ts-loader": "^4.2.0",
+    "ts-node": "^8.0.1",
+    "typescript": "^4.2.4",
+    "webpack": "^5.76.2"
+  },
+  "dependencies": {
+    "@aws-sdk/client-lambda": "^3.536.0",
+    "@aws-sdk/client-rds-data": "^3.540.0",
+    "@aws-sdk/client-secrets-manager": "^3.535.0",
+    "@aws-sdk/client-ses": "^3.540.0",
+    "@aws-sdk/client-ssm": "^3.540.0",
+    "@tmna-devops/ccscl-batch-job-common-lib": "1.0.1",
+    "@tmna-devops/ccscl-rundown-common-lib": "^1.0.5",
+    "aws-sdk": "^2.1580.0",
+    "axios": "^1.4.0",
+    "moment-timezone": "^0.5.43",
+    "pg": "^8.10.0",
+    "pg-promise": "^11.4.3",
+    "winston": "^3.12.0",
+    "winston-aws-cloudwatch": "^3.0.0",
+    "winston-cloudwatch": "^6.2.0"
+  },
+  "overrides": {
+    "unset-value": "2.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "resolutions": {
+    "@smithy/types": "1.1.0"
+  },
+  "license": "UNLICENSED"
+}
