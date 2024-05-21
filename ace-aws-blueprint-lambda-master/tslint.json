@@ -1,0 +1,32 @@
+{
+  "extends": "tslint:latest",
+  "rules": {
+    "indent": [
+      true,
+      "spaces"
+    ],
+    "max-line-length": [
+      true,
+      120
+    ],
+    "no-console": [
+      true,
+      "debug",
+      "info",
+      "time",
+      "timeEnd",
+      "trace"
+    ],
+    "quotemark": [
+      true,
+      "single",
+      "avoid-escape"
+    ],
+    "object-literal-sort-keys": false,
+    "interface-name": false,
+    "no-angle-bracket-type-assertion": false,
+    "ordered-imports": false,
+    "trailing-comma": false,
+    "no-namespace": [true, "allow-declarations"]
+  }
+}

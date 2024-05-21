@@ -1,0 +1,12 @@
+name: codeql-sast
+on:
+  push:
+    branches: ["master", "main", "develop", "release/**"]
+  pull_request:
+    branches: ["master", "main", "develop", "release/**"]
+
+jobs:
+  codeql-sast:
+    uses: Toyota-Motor-North-America/chofer-pipelines-workflows/.github/workflows/sast-codeql.yml@release/1.0
+    with:
+      language-override: "javascript"

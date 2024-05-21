@@ -1,0 +1,35 @@
+{
+  "name": "ace-example-service-npm-serverless",
+  "version": "1.0.0",
+  "description": "npm serverless application using typescript",
+  "scripts": {
+    "serverless": "serverless",
+    "tsc": "tsc",
+    "clean": "rimraf ./dist",
+    "package": "rimraf *.zip && zip -rq temp-app.zip dist node_modules package*.json serverless.yml deploy-configs webpack.config.js source-map-install.js && mv temp-app.zip",
+    "build": "rimraf ./dist && tsc",
+    "test": "mocha -r ts-node/register ./**/*.spec.ts",
+    "deploy": "npm run build && serverless deploy",
+    "lint": "tslint \"src/**/*.ts\" --force",
+    "local": "serverless invoke local -f hello"
+  },
+  "devDependencies": {
+    "@types/node": "^8.0.57",
+    "@types/aws-lambda": "^8.10.1",
+    "@types/mocha": "^5.2.5",
+    "@types/chai": "^4.1.7",
+    "serverless": "^1.10.2",
+    "typescript": "^3.6.4",
+    "mocha": "^5.2.0",
+    "chai": "^4.2.0",
+    "webpack": "^4.5.0",
+    "serverless-webpack": "^5.1.1",
+    "source-map-support": "^0.5.6",
+    "ts-loader": "^4.2.0",
+    "ts-node": "^8.0.1",
+    "ts-lint": "^4.5.1",
+    "serverless-domain-manager": "^6.0.2",
+    "serverless-plugin-ifelse": "^1.0.7"
+  },
+  "license": "UNLICENSED"
+}

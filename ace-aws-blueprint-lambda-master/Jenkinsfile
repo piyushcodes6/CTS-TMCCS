@@ -1,0 +1,4 @@
+@Library('tmna-job-library@release/2.0') _
+ciNpmSls {
+  envMapping = ["feature":["sandbox"], "develop":["sandbox"], "release":["sandbox"], "required":false]
+}

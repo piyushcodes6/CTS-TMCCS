@@ -1,0 +1,73 @@
+### Major Input Variables are defined here.
+---
+
+#######Required input variables##########
+appID:
+appName:
+createdByEmail:
+accountType:
+accountId:
+costCenter:
+region:
+environment:
+runtime:
+kmsKeyArn: 
+deploymentBucketName: 
+serviceName: 
+functionName: 
+
+
+########Optional#################
+
+VPCPresent: NO #Change to YES, if needed
+frameworkVersion: default
+description: Default function description
+architecture: arm64 	#Allowed values: "arm64", "x86_64"
+memorySize: 1024 #Allowed values: 128-10240
+timeout: 6 #Allowed values: 0-900 (0-29 if using API Gateway)
+logRetention: 30 # Possible values are: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, and 3653.
+
+###########Concurrency Configuration
+reservedConcurrency: 100 #Allowed values: 0-1000,default-100
+provisionedConcurrency: 0 #Allowed values: 0-900
+
+###########Version Config
+versionFunctions: true
+
+###########Xray
+tracing: Active
+
+###########IAM
+iamrole: IamRoleLambdaExecution #Default IAM role.
+CustomIAMPresent: NO #Change to YES, if needed
+
+###########Dead-Letter-Queue
+DLQ: null #Default Value
+DLQPresent: NO #Change to YES, if needed
+
+###########RDS Config
+
+RDSPresent: NO #Change to YES, if needed
+SecretArn: default #If no RDS required
+RDSDebugLogging: false
+RDSEngineFamily: MYSQL #Valid values: MYSQL | POSTGRESQL
+RDSIdleClienttimeout: 120
+IAMAuth: REQUIRED #Valid Values: DISABLED | REQUIRED
+RDSRequireTLS: true
+
+###########ALB & HTTP Config
+
+isALBRequired: #OPTIONS: YES or NO
+isHTTPRequired: #OPTIONS: YES or NO
+listenerArn: #Example: arn:aws:elasticloadbalancing:us-west-2:715662994982:listener/app/ace-aws-lambda-demo-loadbalancer/13a3cb5e9361109d/1601770298be05b6
+path: #Example: hello
+method: #Example: get
+intervalSeconds: 35
+timeoutSeconds: 30
+healthyThresholdCount: 5
+unhealthyThresholdCount: 5
+priority: # priority for ALB can range from 1 onwards and if there already listeners with the priority 1, use the available priority.
+httpCode: 200
+
+###########Custom Domain Config
+domainName: #Example: example.com

@@ -1,0 +1,56 @@
+### Major Input Variables are defined here.
+---
+
+#######Required input variables##########
+appID:
+appName:
+createdByEmail:
+accountType:
+accountId:
+costCenter:
+region:
+environment:
+runtime:
+kmsKeyArn: 
+deploymentBucketName: 
+serviceName: 
+functionName: 
+
+
+########Optional#################
+
+VPCPresent: NO #Change to YES, if needed
+frameworkVersion: default
+description: Default function description
+architecture: arm64 	#Allowed values: "arm64", "x86_64"
+memorySize: 1024 #Allowed values: 128-10240
+timeout: 6 #Allowed values: 0-900 (0-29 if using API Gateway)
+logRetention: 30 # Possible values are: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, and 3653.
+
+###########Concurrency Configuration
+reservedConcurrency: 100 #Allowed values: 0-1000,default-100
+provisionedConcurrency: 0 #Allowed values: 0-900
+
+###########Version Config
+versionFunctions: true
+
+###########Xray
+tracing: Active
+
+###########IAM
+iamrole: IamRoleLambdaExecution #Default IAM role.
+CustomIAMPresent: NO #Change to YES, if needed
+
+###########Dead-Letter-Queue
+DLQ: null #Default Value
+DLQPresent: NO #Change to YES, if needed
+
+###########RDS Config
+
+RDSPresent: NO #Change to YES, if needed
+SecretArn: default #If no RDS required
+RDSDebugLogging: false
+RDSEngineFamily: MYSQL #Valid values: MYSQL | POSTGRESQL
+RDSIdleClienttimeout: 120
+IAMAuth: REQUIRED #Valid Values: DISABLED | REQUIRED
+RDSRequireTLS: true
